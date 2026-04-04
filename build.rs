@@ -1288,6 +1288,91 @@ fn set_metadata_template() {
     }
 }
 
+fn set_splash() {
+    let variable = "PYAPP_SPLASH_ENABLED";
+    if is_enabled(variable) {
+        set_runtime_variable(variable, "1");
+
+        // Enable the splash cargo feature
+        println!("cargo:rustc-cfg=feature=\"splash\"");
+
+        // Theme: "dark" (default) or "light"
+        let theme = env::var("PYAPP_SPLASH_THEME").unwrap_or_default();
+        let theme = if theme.eq_ignore_ascii_case("light") {
+            "light"
+        } else {
+            "dark"
+        };
+        set_runtime_variable("PYAPP_SPLASH_THEME", theme);
+
+        // Default colours based on theme
+        let (default_bg, default_text, default_progress) = if theme == "light" {
+            ("#f5f5f5", "#1a1a1a", "#2a6cb6")
+        } else {
+            ("#1a1a2e", "#ffffff", "#4a90d9")
+        };
+
+        let bg_color = env::var("PYAPP_SPLASH_BG_COLOR").unwrap_or_default();
+        set_runtime_variable(
+            "PYAPP_SPLASH_BG_COLOR",
+            if bg_color.is_empty() { default_bg } else { &bg_color },
+        );
+
+        let text_color = env::var("PYAPP_SPLASH_TEXT_COLOR").unwrap_or_default();
+        set_runtime_variable(
+            "PYAPP_SPLASH_TEXT_COLOR",
+            if text_color.is_empty() { default_text } else { &text_color },
+        );
+
+        let progress_color = env::var("PYAPP_SPLASH_PROGRESS_COLOR").unwrap_or_default();
+        set_runtime_variable(
+            "PYAPP_SPLASH_PROGRESS_COLOR",
+            if progress_color.is_empty() { default_progress } else { &progress_color },
+        );
+
+        // Window title defaults to project name
+        let window_title = env::var("PYAPP_SPLASH_WINDOW_TITLE").unwrap_or_default();
+        if window_title.is_empty() {
+            set_runtime_variable(
+                "PYAPP_SPLASH_WINDOW_TITLE",
+                env::var("PYAPP_PROJECT_NAME").unwrap_or_default(),
+            );
+        } else {
+            set_runtime_variable("PYAPP_SPLASH_WINDOW_TITLE", &window_title);
+        }
+
+        // Window dimensions
+        let width = env::var("PYAPP_SPLASH_WINDOW_WIDTH").unwrap_or_default();
+        set_runtime_variable(
+            "PYAPP_SPLASH_WINDOW_WIDTH",
+            if width.is_empty() { "480" } else { &width },
+        );
+
+        let height = env::var("PYAPP_SPLASH_WINDOW_HEIGHT").unwrap_or_default();
+        set_runtime_variable(
+            "PYAPP_SPLASH_WINDOW_HEIGHT",
+            if height.is_empty() { "360" } else { &height },
+        );
+
+        // Splash image (optional)
+        if let Ok(image_path) = env::var("PYAPP_SPLASH_IMAGE") {
+            if !image_path.is_empty() {
+                let path = std::path::Path::new(&image_path);
+                if !path.is_file() {
+                    panic!(
+                        "\n\nPYAPP_SPLASH_IMAGE is not a valid file: {}\n\n",
+                        image_path
+                    );
+                }
+                println!("cargo:rerun-if-changed={}", image_path);
+                set_runtime_variable("PYAPP_SPLASH_IMAGE_PATH", &image_path);
+            }
+        }
+    } else {
+        set_runtime_variable(variable, "0");
+    }
+}
+
 fn main() {
     set_project();
     set_distribution();
@@ -1308,6 +1393,7 @@ fn main() {
     set_self_command();
     set_exposed_commands();
     set_metadata_template();
+    set_splash();
 
     // This must come last because it might override a command exposure
     set_skip_install();
