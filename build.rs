@@ -1354,10 +1354,12 @@ fn set_splash() {
             if height.is_empty() { "360" } else { &height },
         );
 
-        // Splash image (optional)
+        // Splash image (optional) — copy to embedded_logo.bin for include_bytes!
+        let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+        let logo_dest = Path::new(&manifest_dir).join("src/splash/embedded_logo.bin");
         if let Ok(image_path) = env::var("PYAPP_SPLASH_IMAGE") {
             if !image_path.is_empty() {
-                let path = std::path::Path::new(&image_path);
+                let path = Path::new(&image_path);
                 if !path.is_file() {
                     panic!(
                         "\n\nPYAPP_SPLASH_IMAGE is not a valid file: {}\n\n",
@@ -1365,8 +1367,16 @@ fn set_splash() {
                     );
                 }
                 println!("cargo:rerun-if-changed={}", image_path);
-                set_runtime_variable("PYAPP_SPLASH_IMAGE_PATH", &image_path);
+                fs::copy(&image_path, &logo_dest).unwrap_or_else(|e| {
+                    panic!("unable to copy splash image to embedded_logo.bin: {}", e)
+                });
+            } else {
+                // Write empty file (no logo)
+                fs::write(&logo_dest, b"").unwrap();
             }
+        } else {
+            // Write empty file (no logo)
+            fs::write(&logo_dest, b"").unwrap();
         }
     } else {
         set_runtime_variable(variable, "0");
