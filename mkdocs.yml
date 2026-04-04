@@ -53,6 +53,7 @@ nav:
     - Project: config/project.md
     - Python distribution: config/distribution.md
     - Installation: config/installation.md
+    - Splash screen: config/splash.md
     - CLI: config/cli.md
   - Meta:
     - Users: users.md

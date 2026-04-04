@@ -6,6 +6,9 @@
 
 Applications will bootstrap themselves on the first run. All subsequent invocations will only check if the installation directory exists and nothing else, to maximize CLI responsiveness.
 
+!!! tip
+    If the [splash screen](config/splash.md) is enabled, a GUI window with a progress bar and status messages will be displayed during the bootstrap process, providing visual feedback to the user. This is particularly useful for GUI applications where the user may not have access to a terminal.
+
 !!! note
     The following diagram shows the possible behavior at runtime. The nodes with rounded edges are conditions and those with jagged edges are actions.
 
