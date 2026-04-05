@@ -69,11 +69,13 @@ where
     };
 
     // This blocks until the window closes
-    let _ = eframe::run_native(
+    if let Err(e) = eframe::run_native(
         &window_title,
         options,
         Box::new(move |_cc| Ok(Box::new(window::SplashApp::new(config, receiver)))),
-    );
+    ) {
+        eprintln!("Splash screen failed to start: {}", e);
+    }
 
     // Return the work result
     result_rx.recv().expect("bootstrap thread completed")
