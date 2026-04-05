@@ -15,7 +15,7 @@ export PYAPP_EXEC_MODULE="cowsay"
 # Splash screen configuration
 export PYAPP_SPLASH_ENABLED="true"
 export PYAPP_SPLASH_THEME="dark"
-# export PYAPP_SPLASH_IMAGE="/path/to/logo.png"  # Uncomment and set to test logo
+# export PYAPP_SPLASH_IMAGE="/path/to/logo.png"  # Set to a PNG/JPEG to test logo display
 
 echo "Configuration:"
 echo "  Project:  $PYAPP_PROJECT_NAME v$PYAPP_PROJECT_VERSION (from PyPI)"
