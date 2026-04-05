@@ -69,6 +69,18 @@ pub fn update(status: &str, progress: f32) {
 pub fn update(_status: &str, _progress: f32) {}
 
 #[cfg(feature = "splash")]
+pub fn update_status(status: &str) {
+    if let Some(handle) = SPLASH_HANDLE.get() {
+        if let Ok(h) = handle.lock() {
+            h.update_status(status);
+        }
+    }
+}
+
+#[cfg(not(feature = "splash"))]
+pub fn update_status(_status: &str) {}
+
+#[cfg(feature = "splash")]
 pub fn close() {
     if let Some(handle) = SPLASH_HANDLE.get() {
         if let Ok(h) = handle.lock() {

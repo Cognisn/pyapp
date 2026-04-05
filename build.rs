@@ -1380,6 +1380,15 @@ fn set_splash() {
         }
     } else {
         set_runtime_variable(variable, "0");
+
+        // Ensure embedded_logo.bin exists even when splash is disabled,
+        // so include_bytes! compiles if the feature is enabled via
+        // --features splash without the PYAPP_SPLASH_ENABLED env var.
+        let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+        let logo_dest = Path::new(&manifest_dir).join("src/splash/embedded_logo.bin");
+        if logo_dest.parent().map_or(false, |p| p.is_dir()) {
+            let _ = fs::write(&logo_dest, b"");
+        }
     }
 }
 

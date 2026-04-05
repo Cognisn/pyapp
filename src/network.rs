@@ -23,10 +23,9 @@ pub fn download(url: &String, writer: impl Write, description: &str) -> Result<(
             }
             buf_writer.write_all(&buf[..n])?;
             downloaded += n as u64;
-            let fraction = downloaded as f32 / total as f32;
-            splash::update(
-                &format!("Downloading {}... {}%", description, (fraction * 100.0) as u32),
-                0.05 + fraction * 0.25,
+            let pct = (downloaded as f64 / total as f64 * 100.0) as u32;
+            splash::update_status(
+                &format!("Downloading {}... {}%", description, pct),
             );
         }
     } else {

@@ -124,8 +124,8 @@ You may set the `PYAPP_SPLASH_WINDOW_WIDTH` and `PYAPP_SPLASH_WINDOW_HEIGHT` opt
 
 When using [cross](https://github.com/cross-rs/cross), all `PYAPP_SPLASH_*` environment variables are passed through to the build container automatically.
 
-Platform-specific GUI dependencies may be required:
+The splash screen uses the OpenGL (`glow`) renderer. Platform-specific GUI and OpenGL dependencies may be required:
 
 - **Linux:** `libx11-dev`, `libxcb-dev`, `libgl1-mesa-dev` (or equivalents)
-- **macOS:** Xcode Command Line Tools
-- **Windows:** No additional dependencies
+- **macOS:** Xcode Command Line Tools (OpenGL is provided by the system frameworks)
+- **Windows:** No additional dependencies (OpenGL is provided by the graphics driver)
