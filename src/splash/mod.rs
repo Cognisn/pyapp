@@ -57,24 +57,58 @@ where
         let _ = result_tx.send(result);
     });
 
-    // Run the splash window on the main thread (required by macOS)
-    let options = eframe::NativeOptions {
-        viewport: eframe::egui::ViewportBuilder::default()
-            .with_inner_size([window_width, window_height])
-            .with_resizable(false)
-            .with_decorations(true)
-            .with_title(&window_title)
-            .with_always_on_top(),
+    // Run the splash window on the main thread (required by macOS).
+    // Try wgpu first (Direct3D/Metal/Vulkan), fall back to glow (OpenGL).
+    let viewport = eframe::egui::ViewportBuilder::default()
+        .with_inner_size([window_width, window_height])
+        .with_resizable(false)
+        .with_decorations(true)
+        .with_title(&window_title)
+        .with_always_on_top();
+
+    let wgpu_options = eframe::NativeOptions {
+        viewport: viewport.clone(),
+        renderer: eframe::Renderer::Wgpu,
         ..Default::default()
     };
 
-    // This blocks until the window closes
-    if let Err(e) = eframe::run_native(
+    let splash_started = match eframe::run_native(
         &window_title,
-        options,
+        wgpu_options,
         Box::new(move |_cc| Ok(Box::new(window::SplashApp::new(config, receiver)))),
     ) {
-        eprintln!("Splash screen failed to start: {}", e);
+        Ok(()) => true,
+        Err(e) => {
+            eprintln!("Splash wgpu renderer failed: {}, trying glow...", e);
+            false
+        }
+    };
+
+    if !splash_started {
+        // wgpu failed — try glow (OpenGL) as fallback.
+        // Need fresh config and channel since the previous ones were moved.
+        let config2 = SplashConfig::from_env();
+        let (sender2, receiver2) = std::sync::mpsc::channel();
+        // Replace the handle so update/close calls go to the new channel
+        if let Some(handle) = SPLASH_HANDLE.get() {
+            if let Ok(mut h) = handle.lock() {
+                *h = SplashHandle::new(sender2);
+            }
+        }
+
+        let glow_options = eframe::NativeOptions {
+            viewport,
+            renderer: eframe::Renderer::Glow,
+            ..Default::default()
+        };
+
+        if let Err(e) = eframe::run_native(
+            &window_title,
+            glow_options,
+            Box::new(move |_cc| Ok(Box::new(window::SplashApp::new(config2, receiver2)))),
+        ) {
+            eprintln!("Splash glow renderer also failed: {}", e);
+        }
     }
 
     // Return the work result
