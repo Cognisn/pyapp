@@ -9,9 +9,14 @@ The splash screen provides visual feedback during the first-run bootstrap proces
 
 ## Enabling
 
-Set the `PYAPP_SPLASH_ENABLED` option to `true` or `1` to enable the splash screen. This adds the `splash` Cargo feature flag automatically, pulling in the `eframe`/`egui` GUI dependencies (~1.5MB binary size increase).
+To enable the splash screen, you must do both:
 
-When not enabled, no GUI dependencies are included and the binary is identical to upstream PyApp.
+1. Set the `PYAPP_SPLASH_ENABLED` environment variable to `true` or `1`
+2. Build with the `splash` Cargo feature: `cargo build --release --features splash`
+
+The environment variable configures the splash screen at build time (theme, colours, image), while the Cargo feature links the required GUI dependencies (`eframe`/`egui`/`image`, ~1.5MB binary size increase).
+
+When the feature is not enabled, no GUI dependencies are included and the binary is identical to upstream PyApp.
 
 ## Theme
 
@@ -91,7 +96,7 @@ You may set the `PYAPP_SPLASH_WINDOW_WIDTH` and `PYAPP_SPLASH_WINDOW_HEIGHT` opt
     export PYAPP_SPLASH_BG_COLOR="#1a1a2e"
     export PYAPP_SPLASH_PROGRESS_COLOR="#4a90d9"
 
-    cargo build --release
+    cargo build --release --features splash
     ```
 
 === "Windows (PowerShell)"
@@ -109,7 +114,7 @@ You may set the `PYAPP_SPLASH_WINDOW_WIDTH` and `PYAPP_SPLASH_WINDOW_HEIGHT` opt
     $env:PYAPP_SPLASH_BG_COLOR = "#1a1a2e"
     $env:PYAPP_SPLASH_PROGRESS_COLOR = "#4a90d9"
 
-    cargo build --release
+    cargo build --release --features splash
     ```
 
 ## Behaviour
