@@ -13,6 +13,10 @@
          <lastmod>2020-02-02</lastmod>
     </url>
     <url>
+         <loc>https://ofek.dev/pyapp/latest/cognisn-pyapp-fork/</loc>
+         <lastmod>2020-02-02</lastmod>
+    </url>
+    <url>
          <loc>https://ofek.dev/pyapp/latest/examples/</loc>
          <lastmod>2020-02-02</lastmod>
     </url>
@@ -49,11 +53,19 @@
          <lastmod>2020-02-02</lastmod>
     </url>
     <url>
+         <loc>https://ofek.dev/pyapp/latest/superpowers/plans/2026-04-05-splash-screen-v2/</loc>
+         <lastmod>2020-02-02</lastmod>
+    </url>
+    <url>
          <loc>https://ofek.dev/pyapp/latest/superpowers/plans/2026-04-05-splash-screen/</loc>
          <lastmod>2020-02-02</lastmod>
     </url>
     <url>
          <loc>https://ofek.dev/pyapp/latest/superpowers/specs/2026-04-05-splash-screen-design/</loc>
+         <lastmod>2020-02-02</lastmod>
+    </url>
+    <url>
+         <loc>https://ofek.dev/pyapp/latest/superpowers/specs/2026-04-05-splash-screen-v2-design/</loc>
          <lastmod>2020-02-02</lastmod>
     </url>
 </urlset>
