@@ -141,16 +141,23 @@ pub fn ensure_ready() -> Result<()> {
 
     if !app::install_dir().is_dir() {
         if splash::is_enabled() {
-            splash::start();
+            let result = splash::run_with_splash(|| -> Result<()> {
+                materialize()?;
+
+                if !app::skip_install() {
+                    install_project()?;
+                }
+
+                Ok(())
+            });
+            result?;
+        } else {
+            materialize()?;
+
+            if !app::skip_install() {
+                install_project()?;
+            }
         }
-
-        materialize()?;
-
-        if !app::skip_install() {
-            install_project()?;
-        }
-
-        splash::close();
     }
 
     FileExt::unlock(&lock_file)
