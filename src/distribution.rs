@@ -10,6 +10,7 @@ use fs4::fs_std::FileExt;
 use tempfile::tempdir;
 
 use crate::{app, compression, fs_utils, network, process};
+use crate::splash;
 
 #[cfg(windows)]
 const PATH_SEPARATOR: char = ';';
@@ -139,10 +140,23 @@ pub fn ensure_ready() -> Result<()> {
     let lock_file = fs_utils::acquire_lock(&lock_path)?;
 
     if !app::install_dir().is_dir() {
-        materialize()?;
+        if splash::is_enabled() {
+            let result = splash::run_with_splash(|| -> Result<()> {
+                materialize()?;
 
-        if !app::skip_install() {
-            install_project()?;
+                if !app::skip_install() {
+                    install_project()?;
+                }
+
+                Ok(())
+            });
+            result?;
+        } else {
+            materialize()?;
+
+            if !app::skip_install() {
+                install_project()?;
+            }
         }
     }
 
@@ -196,6 +210,8 @@ pub fn materialize() -> Result<()> {
     let distributions_dir = app::distributions_cache();
     let distribution_file = distributions_dir.join(app::distribution_id());
 
+    splash::update("Checking distribution cache...", 0.0);
+
     if !distribution_file.is_file() {
         let distribution_source = app::distribution_source();
         let distributions_dir = distribution_file.parent().unwrap();
@@ -216,6 +232,7 @@ pub fn materialize() -> Result<()> {
         // The embedded distribution goes through the same process to become a file because
         // the ZIP archive API requires the Seek trait for the input stream
         if !app::embedded_distribution().is_empty() {
+            splash::update("Extracting embedded distribution...", 0.05);
             f.write(app::embedded_distribution()).with_context(|| {
                 format!(
                     "unable to write embedded distribution to temporary file: {}",
@@ -223,11 +240,14 @@ pub fn materialize() -> Result<()> {
                 )
             })?;
         } else {
+            splash::update("Downloading Python distribution...", 0.05);
             network::download(&distribution_source, &mut f, "distribution")?;
         }
 
         fs_utils::move_temp_file(&temp_path, &distribution_file)?;
     }
+
+    splash::update("Unpacking distribution...", 0.30);
 
     if app::full_isolation() {
         compression::unpack(
@@ -247,6 +267,7 @@ pub fn materialize() -> Result<()> {
         if !app::skip_install() {
             ensure_base_pip(app::install_dir())?;
         }
+        splash::update("Distribution ready", 0.40);
     } else {
         let unpacked_distribution = distributions_dir.join(format!("_{}", app::distribution_id()));
         if !unpacked_distribution.is_dir() {
@@ -314,6 +335,7 @@ pub fn materialize() -> Result<()> {
         let (status, output) =
             run_setup_command(command, "Creating virtual environment".to_string())?;
         check_setup_status(status, output)?;
+        splash::update("Virtual environment created", 0.50);
     }
 
     Ok(())
@@ -323,6 +345,8 @@ fn install_project() -> Result<()> {
     let install_target = format!("{} {}", app::project_name(), app::project_version());
     let binary_only = app::pip_extra_args().contains("--only-binary :all:")
         || app::pip_extra_args().contains("--only-binary=:all:");
+
+    splash::update(&format!("Installing {}...", app::project_name()), 0.60);
 
     let mut command = pip_install_command();
     let (status, output) = if !app::embedded_project().is_empty() {
@@ -453,6 +477,7 @@ pub fn ensure_installer_available() -> Result<()> {
             )
         };
 
+        splash::update("Downloading pip...", 0.55);
         network::download(
             &url,
             &mut f,
@@ -490,6 +515,7 @@ fn ensure_uv_available() -> Result<()> {
     let mut f = fs::File::create(&temp_path)
         .with_context(|| format!("unable to create temporary file: {}", &temp_path.display()))?;
 
+    splash::update("Downloading UV package manager...", 0.55);
     network::download(&app::uv_source(), &mut f, "UV")?;
 
     if artifact_name.ends_with(".zip") {

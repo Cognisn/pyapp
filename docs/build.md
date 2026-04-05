@@ -2,7 +2,7 @@
 
 -----
 
-Before building your application, you must configure your [project](config/project.md) at the very least.
+Before building your application, you must configure your [project](config/project.md) at the very least. Optionally, you can also configure a [splash screen](config/splash.md) to display during the first-run bootstrap process.
 
 After you have done that, your application can be built using a [local copy](#local-repository) of this repository or via [installation](#installation) with Cargo.
 

@@ -5,6 +5,7 @@ mod distribution;
 mod fs_utils;
 mod network;
 mod process;
+mod splash;
 mod terminal;
 
 use std::env;

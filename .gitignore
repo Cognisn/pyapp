@@ -18,3 +18,5 @@ target/
 
 # Editor configs
 .vscode/
+
+src/splash/embedded_logo.bin
