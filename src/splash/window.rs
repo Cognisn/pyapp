@@ -84,7 +84,7 @@ impl eframe::App for SplashApp {
         let progress_color = Self::color_to_egui32(&self.config.progress_color);
 
         egui::CentralPanel::default()
-            .frame(egui::Frame::new().fill(bg))
+            .frame(egui::Frame::none().fill(bg))
             .show(ctx, |ui| {
                 ui.vertical_centered(|ui| {
                     ui.add_space(20.0);
