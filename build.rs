@@ -1292,92 +1292,32 @@ fn set_splash() {
     let variable = "PYAPP_SPLASH_ENABLED";
     if is_enabled(variable) {
         set_runtime_variable(variable, "1");
-
-        // Enable the splash cargo feature
         println!("cargo:rustc-cfg=feature=\"splash\"");
 
-        // Theme: "dark" (default) or "light"
-        let theme = env::var("PYAPP_SPLASH_THEME").unwrap_or_default();
-        let theme = if theme.eq_ignore_ascii_case("light") {
-            "light"
-        } else {
-            "dark"
-        };
-        set_runtime_variable("PYAPP_SPLASH_THEME", theme);
-
-        // Default colours based on theme
-        let (default_bg, default_text, default_progress) = if theme == "light" {
-            ("#f5f5f5", "#1a1a1a", "#2a6cb6")
-        } else {
-            ("#1a1a2e", "#ffffff", "#4a90d9")
-        };
-
-        let bg_color = env::var("PYAPP_SPLASH_BG_COLOR").unwrap_or_default();
-        set_runtime_variable(
-            "PYAPP_SPLASH_BG_COLOR",
-            if bg_color.is_empty() { default_bg } else { &bg_color },
-        );
-
-        let text_color = env::var("PYAPP_SPLASH_TEXT_COLOR").unwrap_or_default();
-        set_runtime_variable(
-            "PYAPP_SPLASH_TEXT_COLOR",
-            if text_color.is_empty() { default_text } else { &text_color },
-        );
-
-        let progress_color = env::var("PYAPP_SPLASH_PROGRESS_COLOR").unwrap_or_default();
-        set_runtime_variable(
-            "PYAPP_SPLASH_PROGRESS_COLOR",
-            if progress_color.is_empty() { default_progress } else { &progress_color },
-        );
-
-        // Window title defaults to project name
-        let window_title = env::var("PYAPP_SPLASH_WINDOW_TITLE").unwrap_or_default();
-        if window_title.is_empty() {
-            set_runtime_variable(
-                "PYAPP_SPLASH_WINDOW_TITLE",
-                env::var("PYAPP_PROJECT_NAME").unwrap_or_default(),
-            );
-        } else {
-            set_runtime_variable("PYAPP_SPLASH_WINDOW_TITLE", &window_title);
-        }
-
-        // Window dimensions
-        let width = env::var("PYAPP_SPLASH_WINDOW_WIDTH").unwrap_or_default();
-        set_runtime_variable(
-            "PYAPP_SPLASH_WINDOW_WIDTH",
-            if width.is_empty() { "480" } else { &width },
-        );
-
-        let height = env::var("PYAPP_SPLASH_WINDOW_HEIGHT").unwrap_or_default();
-        set_runtime_variable(
-            "PYAPP_SPLASH_WINDOW_HEIGHT",
-            if height.is_empty() { "360" } else { &height },
-        );
-
-        // Splash image (optional) — copy to embedded_logo.bin for include_bytes!
+        // Splash image is required when splash is enabled
         let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
         let logo_dest = Path::new(&manifest_dir).join("src/splash/embedded_logo.bin");
-        if let Ok(image_path) = env::var("PYAPP_SPLASH_IMAGE") {
-            if !image_path.is_empty() {
-                let path = Path::new(&image_path);
-                if !path.is_file() {
-                    panic!(
-                        "\n\nPYAPP_SPLASH_IMAGE is not a valid file: {}\n\n",
-                        image_path
-                    );
-                }
-                println!("cargo:rerun-if-changed={}", image_path);
-                fs::copy(&image_path, &logo_dest).unwrap_or_else(|e| {
-                    panic!("unable to copy splash image to embedded_logo.bin: {}", e)
-                });
-            } else {
-                // Write empty file (no logo)
-                fs::write(&logo_dest, b"").unwrap();
-            }
-        } else {
-            // Write empty file (no logo)
-            fs::write(&logo_dest, b"").unwrap();
+
+        let image_path = env::var("PYAPP_SPLASH_IMAGE").unwrap_or_default();
+        if image_path.is_empty() {
+            panic!(
+                "\n\nPYAPP_SPLASH_IMAGE is required when PYAPP_SPLASH_ENABLED is true.\n\
+                 Provide a path to a PNG or JPEG image (recommended size: 640x400).\n\n"
+            );
         }
+
+        let path = Path::new(&image_path);
+        if !path.is_file() {
+            panic!(
+                "\n\nPYAPP_SPLASH_IMAGE is not a valid file: {}\n\n",
+                image_path
+            );
+        }
+
+        println!("cargo:rerun-if-changed={}", image_path);
+        fs::copy(&image_path, &logo_dest).unwrap_or_else(|e| {
+            panic!("unable to copy splash image to embedded_logo.bin: {}", e)
+        });
     } else {
         set_runtime_variable(variable, "0");
 
