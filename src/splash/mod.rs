@@ -84,8 +84,3 @@ pub fn is_enabled() -> bool {
 pub fn is_enabled() -> bool {
     false
 }
-
-// Legacy no-op stubs retained for call sites pending removal in a follow-up task.
-pub fn update(_status: &str, _progress: f32) {}
-pub fn update_status(_status: &str) {}
-pub fn close() {}
