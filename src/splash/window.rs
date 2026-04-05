@@ -1,172 +1,166 @@
-use std::sync::mpsc;
+use std::num::NonZeroU32;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
-use eframe::egui;
+use winit::application::ApplicationHandler;
+use winit::dpi::LogicalSize;
+use winit::event::WindowEvent;
+use winit::event_loop::{ActiveEventLoop, EventLoop};
+use winit::window::{Window, WindowAttributes, WindowId};
 
-use super::config::{Color, SplashConfig};
-use super::progress::SplashMessage;
-
-pub struct SplashApp {
-    config: SplashConfig,
-    receiver: mpsc::Receiver<SplashMessage>,
-    status: String,
-    progress: f32,
-    logo_texture: Option<egui::TextureHandle>,
-    logo_loaded: bool,
-    should_close: bool,
+pub struct SplashWindow {
+    pixels: Vec<u32>,
+    width: u32,
+    height: u32,
+    done: Arc<AtomicBool>,
+    window: Option<Arc<Window>>,
+    surface: Option<softbuffer::Surface<Arc<Window>, Arc<Window>>>,
 }
 
-impl SplashApp {
-    pub fn new(config: SplashConfig, receiver: mpsc::Receiver<SplashMessage>) -> SplashApp {
-        SplashApp {
-            config,
-            receiver,
-            status: "Preparing...".to_string(),
-            progress: 0.0,
-            logo_texture: None,
-            logo_loaded: false,
-            should_close: false,
+impl SplashWindow {
+    pub fn new(pixels: Vec<u32>, width: u32, height: u32, done: Arc<AtomicBool>) -> SplashWindow {
+        SplashWindow {
+            pixels,
+            width,
+            height,
+            done,
+            window: None,
+            surface: None,
         }
     }
 
-    fn process_messages(&mut self) {
-        while let Ok(msg) = self.receiver.try_recv() {
-            match msg {
-                SplashMessage::UpdateStatus(s) => self.status = s,
-                SplashMessage::UpdateProgress(p) => self.progress = p,
-                SplashMessage::Close => self.should_close = true,
+    fn paint(&mut self) {
+        let Some(ref mut surface) = self.surface else {
+            return;
+        };
+
+        let Some(ref window) = self.window else {
+            return;
+        };
+
+        let size = window.inner_size();
+        if size.width == 0 || size.height == 0 {
+            return;
+        }
+
+        let Ok(mut buffer) = surface.buffer_mut() else {
+            return;
+        };
+
+        let buf_width = size.width as usize;
+        let buf_height = size.height as usize;
+        let img_width = self.width as usize;
+        let img_height = self.height as usize;
+
+        for y in 0..buf_height {
+            for x in 0..buf_width {
+                let idx = y * buf_width + x;
+                if x < img_width && y < img_height {
+                    buffer[idx] = self.pixels[y * img_width + x];
+                } else {
+                    buffer[idx] = 0;
+                }
             }
         }
-    }
 
-    fn load_logo(&mut self, ctx: &egui::Context) {
-        if self.logo_loaded {
-            return;
-        }
-        self.logo_loaded = true;
-
-        let image_bytes: &[u8] = include_bytes!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/src/splash/embedded_logo.bin"
-        ));
-
-        if image_bytes.is_empty() {
-            return;
-        }
-
-        if let Ok(img) = image::load_from_memory(image_bytes) {
-            let rgba = img.to_rgba8();
-            let size = [rgba.width() as usize, rgba.height() as usize];
-            let pixels = rgba.into_raw();
-            let color_image = egui::ColorImage::from_rgba_unmultiplied(size, &pixels);
-            self.logo_texture =
-                Some(ctx.load_texture("splash_logo", color_image, egui::TextureOptions::LINEAR));
-        }
-    }
-
-    fn color_to_egui32(color: &Color) -> egui::Color32 {
-        egui::Color32::from_rgb(color.r, color.g, color.b)
+        let _ = buffer.present();
     }
 }
 
-impl eframe::App for SplashApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.process_messages();
-
-        if self.should_close {
-            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+impl ApplicationHandler for SplashWindow {
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        if self.window.is_some() {
             return;
         }
 
-        self.load_logo(ctx);
+        let attrs = WindowAttributes::default()
+            .with_inner_size(LogicalSize::new(self.width, self.height))
+            .with_resizable(false)
+            .with_decorations(false)
+            .with_title("Loading...");
 
-        let bg = Self::color_to_egui32(&self.config.bg_color);
-        let text_color = Self::color_to_egui32(&self.config.text_color);
-        let progress_color = Self::color_to_egui32(&self.config.progress_color);
+        let window = match event_loop.create_window(attrs) {
+            Ok(w) => Arc::new(w),
+            Err(e) => {
+                eprintln!("Splash: failed to create window: {}", e);
+                event_loop.exit();
+                return;
+            }
+        };
 
-        egui::CentralPanel::default()
-            .frame(egui::Frame::none().fill(bg))
-            .show(ctx, |ui| {
-                ui.vertical_centered(|ui| {
-                    ui.add_space(20.0);
+        let context = match softbuffer::Context::new(window.clone()) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("Splash: failed to create softbuffer context: {}", e);
+                event_loop.exit();
+                return;
+            }
+        };
 
-                    // Logo image or fallback text
-                    if let Some(ref texture) = self.logo_texture {
-                        let mut size = texture.size_vec2();
-                        let max_width = self.config.window_width as f32 * 0.6;
-                        let max_height = self.config.window_height as f32 * 0.4;
-                        let scale = (max_width / size.x).min(max_height / size.y).min(1.0);
-                        size *= scale;
-                        ui.image(egui::load::SizedTexture::new(texture.id(), size));
-                    } else {
-                        ui.add_space(40.0);
-                        ui.label(
-                            egui::RichText::new(&self.config.project_name)
-                                .color(text_color)
-                                .size(32.0)
-                                .strong(),
-                        );
-                    }
+        let mut surface = match softbuffer::Surface::new(&context, window.clone()) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("Splash: failed to create surface: {}", e);
+                event_loop.exit();
+                return;
+            }
+        };
 
-                    ui.add_space(10.0);
+        let _ = surface.resize(
+            NonZeroU32::new(self.width).unwrap_or(NonZeroU32::new(1).unwrap()),
+            NonZeroU32::new(self.height).unwrap_or(NonZeroU32::new(1).unwrap()),
+        );
 
-                    // Version
-                    if !self.config.project_version.is_empty() {
-                        ui.label(
-                            egui::RichText::new(format!("v{}", self.config.project_version))
-                                .color(text_color)
-                                .size(14.0),
-                        );
-                    }
+        self.surface = Some(surface);
+        self.window = Some(window);
 
-                    ui.add_space(20.0);
-
-                    // Progress bar
-                    let available_width = ui.available_width() * 0.8;
-                    let bar_height = 20.0;
-                    let (rect, _) =
-                        ui.allocate_exact_size(egui::vec2(available_width, bar_height), egui::Sense::hover());
-
-                    let painter = ui.painter();
-
-                    // Background track
-                    let track_color = egui::Color32::from_rgba_premultiplied(
-                        text_color.r(),
-                        text_color.g(),
-                        text_color.b(),
-                        30,
-                    );
-                    painter.rect_filled(rect, 4.0, track_color);
-
-                    // Fill
-                    let fill_width = rect.width() * self.progress;
-                    let fill_rect = egui::Rect::from_min_size(
-                        rect.min,
-                        egui::vec2(fill_width, rect.height()),
-                    );
-                    painter.rect_filled(fill_rect, 4.0, progress_color);
-
-                    // Percentage text
-                    let pct_text = format!("{}%", (self.progress * 100.0) as u32);
-                    painter.text(
-                        rect.center(),
-                        egui::Align2::CENTER_CENTER,
-                        pct_text,
-                        egui::FontId::proportional(12.0),
-                        text_color,
-                    );
-
-                    ui.add_space(15.0);
-
-                    // Status text
-                    ui.label(
-                        egui::RichText::new(&self.status)
-                            .color(text_color)
-                            .size(14.0),
-                    );
-                });
-            });
-
-        // Request repaint to stay responsive to messages
-        ctx.request_repaint_after(std::time::Duration::from_millis(50));
+        self.paint();
     }
+
+    fn window_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        _window_id: WindowId,
+        event: WindowEvent,
+    ) {
+        match event {
+            WindowEvent::RedrawRequested => {
+                if self.done.load(Ordering::Relaxed) {
+                    event_loop.exit();
+                    return;
+                }
+                self.paint();
+                if let Some(ref window) = self.window {
+                    window.request_redraw();
+                }
+            }
+            WindowEvent::CloseRequested => {
+                // Don't exit — bootstrap is still running.
+            }
+            _ => {}
+        }
+    }
+
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        if self.done.load(Ordering::Relaxed) {
+            event_loop.exit();
+            return;
+        }
+        if let Some(ref window) = self.window {
+            window.request_redraw();
+        }
+    }
+}
+
+pub fn show_splash(pixels: Vec<u32>, width: u32, height: u32, done: Arc<AtomicBool>) {
+    let event_loop = match EventLoop::new() {
+        Ok(el) => el,
+        Err(e) => {
+            eprintln!("Splash: failed to create event loop: {}", e);
+            return;
+        }
+    };
+
+    let mut app = SplashWindow::new(pixels, width, height, done);
+    let _ = event_loop.run_app(&mut app);
 }
